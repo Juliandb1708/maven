@@ -3137,6 +3137,20 @@
             ]]>
           </description>
         </field>
+        <field>
+          <name>importedBy</name>
+          <version>4.0.0+</version>
+          <association>
+            <type>InputSource</type>
+            <bidi>false</bidi>
+          </association>
+          <description>
+            <![CDATA[
+            The InputSource of the pom that imported this pom in dependency management, or {@code null} if unknown or
+            top-level.
+            ]]>
+          </description>
+        </field>
       </fields>
       <codeSegments>
         <codeSegment>

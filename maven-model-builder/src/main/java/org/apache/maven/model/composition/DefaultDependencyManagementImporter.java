@@ -23,12 +23,15 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
+import org.apache.maven.model.InputLocation;
+import org.apache.maven.model.InputSource;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.ModelProblemCollector;
@@ -75,12 +78,55 @@ public class DefaultDependencyManagementImporter
                     if ( !dependencies.containsKey( key ) )
                     {
                         dependencies.put( key, dependency );
+                        if ( request.isLocationTracking() )
+                        {
+                            updateDependencyHierarchy( dependency, source );
+                        }
                     }
                 }
             }
 
             depMgmt.setDependencies( new ArrayList<>( dependencies.values() ) );
         }
+    }
+
+    static void updateDependencyHierarchy( Dependency dependency, DependencyManagement bom )
+    {
+        // We are only interested in the InputSource, so the location of the <dependency> element is sufficient
+        InputLocation dependencyLocation = dependency.getLocation( "" );
+        InputLocation bomLocation = bom.getLocation( "" );
+
+        if ( dependencyLocation == null || bomLocation == null )
+        {
+            return;
+        }
+
+        InputSource hierarchicalSource = dependencyLocation.getSource();
+        InputSource bomSource = bomLocation.getSource();
+
+        // Skip if the dependency and bom have the same source
+        if ( hierarchicalSource == null || bomSource == null || Objects.equals( hierarchicalSource.getModelId(),
+                bomSource.getModelId() ) )
+        {
+            return;
+        }
+
+        while ( hierarchicalSource.getImportedBy() != null )
+        {
+            InputSource newSource = hierarchicalSource.getImportedBy();
+
+            // Stop if the bom is already in the list, no update necessary
+            if ( Objects.equals( newSource.getModelId(), bomSource.getModelId() ) )
+            {
+                return;
+            }
+
+            hierarchicalSource = newSource;
+        }
+
+        // We modify the InputSource that is used for the whole file
+        // This is assumed to be correct because the pom hierarchy applies to the whole pom, not just one dependency
+        hierarchicalSource.setImportedBy( bomSource );
     }
 
 }
